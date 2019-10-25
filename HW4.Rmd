@@ -1,8 +1,10 @@
 ---
-title: "Machine Learning 2019: Feature Selection"
+title: 'Machine Learning 2019: Feature Selection'
 author: "Sonali Narang"
-date: October 24, 2019
-output: pdf_document
+date: "October 24, 2019"
+output:
+  html_document:
+    df_print: paged
 ---
 
 ```{r setup, include=FALSE}
@@ -22,6 +24,7 @@ library(caret)
 library(randomForest)
 library(mlbench)
 library(glmnet)
+library(relaimpo)
 ```
 
 ## The Breast Cancer Dataset
@@ -108,7 +111,7 @@ Least Absolute Shrinkage and Selection Operator (LASSO) regression
 set.seed(24)
 
 #convert data
-x = x <- as.matrix(BreastCancer_num[,1:10])
+x = as.matrix(BreastCancer_num[,1:10])
 y = as.double(as.matrix(ifelse(BreastCancer_num[,11]=='benign', 0, 1))) 
 
 #fit Lasso model 
@@ -163,7 +166,70 @@ importance(rfmodel)
 ## Homework
 
 1. Compare the most important features from at least 2 different classes of feature selection methods covered in this tutorial with any reasonable machine learning dataset from mlbench. Do these feature selection methods provide similar results? 
+Both RFE and Random forests provided similar results but did differ in their ordering of the ranking of importance. Results are shown below.
+```{r load Zoo dataset}
+data(PimaIndiansDiabetes)
+head(PimaIndiansDiabetes)
+dim(PimaIndiansDiabetes)
+summary(PimaIndiansDiabetes$diabetes)
+```
+RFE
+```{r}
+PimaIndiansDiabetes_num1 = transform(PimaIndiansDiabetes, pregnant = as.numeric(pregnant), glucose = as.numeric(glucose), pressure = as.numeric(pressure), triceps = as.numeric(triceps), insulin = as.numeric(insulin), mass = as.numeric(mass), pedigree = as.numeric(pedigree), age = as.numeric(age))
+
+PimaIndiansDiabetes_num1[is.na(PimaIndiansDiabetes_num1)] = 0
+control1 = rfeControl(functions = caretFuncs, number = 2)
+
+results1 = rfe(PimaIndiansDiabetes_num1[,1:8], PimaIndiansDiabetes_num1[,9], sizes = c(2,5,7), rfeControl = control1, method = "svmRadial")
+
+results1
+results1$variables
+```
+
+
+Random Forests
+```{r}
+train_size1 <- floor(0.75 * nrow(PimaIndiansDiabetes))
+set.seed(24)
+train_pos1 <- sample(seq_len(nrow(PimaIndiansDiabetes)), size = train_size1)
+
+#convert to numeric
+PimaIndiansDiabetes_num = transform(PimaIndiansDiabetes, pregnant = as.numeric(pregnant), glucose = as.numeric(glucose), pressure = as.numeric(pressure), triceps = as.numeric(triceps), insulin = as.numeric(insulin), mass = as.numeric(mass), pedigree = as.numeric(pedigree), age = as.numeric(age))
+
+PimaIndiansDiabetes_num[is.na(PimaIndiansDiabetes_num)] = 0
+
+train_classification1 <- PimaIndiansDiabetes_num[train_pos, ]
+test_classification1 <- PimaIndiansDiabetes_num[-train_pos, ]
+
+#fit a model
+rfmodel1 = randomForest(diabetes ~ pregnant + glucose + pressure + triceps + insulin + mass + pedigree + age, data=train_classification1,  importance = TRUE, oob.times = 15, confusion = TRUE)
+
+#rank features based on importance 
+importance(rfmodel1)
+
+```
+
+
 
 2. Attempt a feature selection method not covered in this tutorial (backward elimination, forward propogation, etc.)
+Simulated Annealing method: optimal variables = glucose, pressure, triceps, pedigree, age
+```{r}
+PimaIndiansDiabetes_num2 = transform(PimaIndiansDiabetes, pregnant = as.numeric(pregnant), glucose = as.numeric(glucose), pressure = as.numeric(pressure), triceps = as.numeric(triceps), insulin = as.numeric(insulin), mass = as.numeric(mass), pedigree = as.numeric(pedigree), age = as.numeric(age))
+
+PimaIndiansDiabetes_num2[is.na(PimaIndiansDiabetes_num2)] = 0
+
+ctrl1 <- safsControl(functions = rfSA,
+                        method = "repeatedcv",
+                        repeats = 3,
+                        improve = 5) 
+
+set.seed(100)
+sa <- safs(x=PimaIndiansDiabetes_num2[, c(1:8)], 
+               y=PimaIndiansDiabetes_num2[, 9],
+               safsControl = ctrl1)
+
+
+print(sa$optVariables)
+```
 
 
